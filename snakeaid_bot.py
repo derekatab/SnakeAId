@@ -1,191 +1,138 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from fuzzywuzzy import process
-import pandas as pd
+from twilio.rest import Client
+import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
-# Sample snake database
-snake_data = [
-    {
-        "name": "Fer-de-Lance", 
-        "color": "brown", 
-        "size": "large", 
-        "venom": "hemotoxic", 
-        "symptoms": ["swelling", "pain", "bruising", "necrosis"]
-    },
-    {
-        "name": "Coral Snake", 
-        "color": "red, black, yellow", 
-        "size": "small", 
-        "venom": "neurotoxic", 
-        "symptoms": ["blurred vision", "paralysis", "difficulty breathing"]
-    },
-    {
-        "name": "Bushmaster", 
-        "color": "brown, patterned", 
-        "size": "large", 
-        "venom": "hemotoxic", 
-        "symptoms": ["pain", "bleeding", "shock", "tissue damage"]
-    },
-    {
-        "name": "Eyelash Viper", 
-        "color": "yellow, green, brown", 
-        "size": "small", 
-        "venom": "hemotoxic", 
-        "symptoms": ["swelling", "pain", "bruising", "tissue necrosis"]
-    },
-    {
-        "name": "Hog-nosed Pit Viper", 
-        "color": "brown, gray", 
-        "size": "small", 
-        "venom": "mildly hemotoxic", 
-        "symptoms": ["localized swelling", "pain", "mild necrosis"]
-    },
-    {
-        "name": "Neotropical Rattlesnake", 
-        "color": "brown, tan, black bands", 
-        "size": "medium", 
-        "venom": "neurotoxic", 
-        "symptoms": ["muscle weakness", "respiratory distress", "blurred vision"]
-    },
-    {
-        "name": "Jumping Pit Viper", 
-        "color": "brown, dark markings", 
-        "size": "medium", 
-        "venom": "hemotoxic", 
-        "symptoms": ["pain", "swelling", "bruising"]
-    },
-    {
-        "name": "False Fer-de-Lance", 
-        "color": "brown, gray, patterned", 
-        "size": "medium", 
-        "venom": "mild hemotoxic", 
-        "symptoms": ["swelling", "mild pain", "nausea"]
-    },
-    {
-        "name": "Green Vine Snake", 
-        "color": "bright green", 
-        "size": "medium", 
-        "venom": "mildly toxic", 
-        "symptoms": ["minor swelling", "redness", "localized pain"]
-    },
-    {
-        "name": "Boa Constrictor", 
-        "color": "brown, tan, black markings", 
-        "size": "large", 
-        "venom": "non-venomous", 
-        "symptoms": ["constriction injuries", "bruising", "shortness of breath if squeezed"]
-    }
-]
+# Twilio configuration
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 
-# Convert to DataFrame
-df = pd.DataFrame(snake_data)
+if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN:
+    print("Warning: Twilio credentials not found. Please set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.")
+else:
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
-# Step tracking for conversation flow
+# Backend API configuration
+BACKEND_URL = 'http://localhost:5001/api'
+
+#  conversation flow
 user_sessions = {}
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_bot():
     incoming_msg = request.form.get("Body", "").lower()
-    sender = request.form.get("From")  # Fix sender
+    sender = request.form.get("From")
     response = MessagingResponse()
     msg = response.message()
-    msg.body("Hello! This is a test response.")
-    return str(response), 200
 
-    
-    # Initialize user session if not exists
     if sender not in user_sessions:
         user_sessions[sender] = {"step": 0, "description": {}, "symptoms": []}
 
-    step = user_sessions[sender]["step"]
+    session = user_sessions[sender]
 
-    # **Conversation Flow**
-    if step == 0:
-        msg.body("🐍 What was the snake's color? (e.g., brown, black, red, yellow, patterned)")
-        user_sessions[sender]["step"] = 1
+    if session["step"] == 0:
+        msg.body("Hello! I can help you identify snakes and provide first aid information. Would you like to:\n1. Describe a snake's appearance\n2. List symptoms from a snake bite\n3. Send a photo of a snake")
+        session["step"] = 1
+        return str(response)
 
-    elif step == 1:
-        user_sessions[sender]["description"]["color"] = incoming_msg
-        msg.body("🐍 What was the snake's size? (small, medium, large)")
-        user_sessions[sender]["step"] = 2
-
-    elif step == 2:
-        user_sessions[sender]["description"]["size"] = incoming_msg
-        msg.body("⚠️ What symptoms do you have? (List symptoms like pain, swelling, blurred vision)")
-        user_sessions[sender]["step"] = 3
-
-    elif step == 3:
-        # Get new additional symptoms and combine with existing ones
-        new_symptoms = [s.strip() for s in incoming_msg.split(",")]
-        user_sessions[sender]["symptoms"].extend(new_symptoms)  # Combine with existing symptoms
-        symptoms = user_sessions[sender]["symptoms"]  # Use combined symptoms list
-
-        # **Matching the snake type**
-        matched_snake = None
-        highest_score = 0
-
-        for _, row in df.iterrows():
-            color_score = process.extractOne(user_sessions[sender]["description"]["color"], row["color"].split(", "), score_cutoff=50)
-            size_match = row["size"] == user_sessions[sender]["description"]["size"]
-            symptom_match = any(symptom in list(row["symptoms"]) for symptom in symptoms)
-
-            if color_score and size_match and symptom_match:
-                matched_snake = row.to_dict()  # Convert Series to dict
-                highest_score = color_score[1]
-        # Check if `matched_snake` is not None
-        if matched_snake:
-            msg.body(f"🩸 This could be a {matched_snake['name']} ({matched_snake['venom']} venom).\n"
-                f"🚑 First Aid: {first_aid_advice(matched_snake['venom'])}\n"
-                f"💡 Do you have other symptoms? (yes/no)")
-            user_sessions[sender]["step"] = 4  # Continue conversation
+    if session["step"] == 1:
+        if "1" in incoming_msg:
+            msg.body("Please describe the snake's color and any distinctive patterns:")
+            session["step"] = 2
+        elif "2" in incoming_msg:
+            msg.body("Please list the symptoms you're experiencing (separated by commas):")
+            session["step"] = 3
+        elif "3" in incoming_msg:
+            msg.body("Please send a photo of the snake.")
+            session["step"] = 4
         else:
-            msg.body("❓ I couldn't identify the snake, but seek urgent medical help immediately!")
-            user_sessions[sender] = {"step": 0, "description": {}, "symptoms": []}  # Reset session
+            msg.body("Please choose 1, 2, or 3")
+        return str(response)
 
-
-    elif step == 4:
-        if incoming_msg in ["yes", "y"]:
-            msg.body("⚠️ List any additional symptoms.")
-            user_sessions[sender]["step"] = 3  # Go back to symptom collection
+    if session["step"] == 2:
+        # Search snakes by description
+        search_response = requests.get(f"{BACKEND_URL}/snakes/search", params={"q": incoming_msg})
+        if search_response.status_code == 200:
+            snakes = search_response.json()
+            if snakes:
+                response_text = "Possible matches:\n\n"
+                for snake in snakes[:3]:  # Limit to top 3 matches
+                    response_text += f"Name: {snake['name']}\n"
+                    response_text += f"Color: {snake['color']}\n"
+                    response_text += f"Venom: {snake['venom']}\n"
+                    response_text += f"First Aid: {snake['first_aid']}\n\n"
+            else:
+                response_text = "No snakes found matching that description. Please try again with different details."
         else:
-            msg.body("🚑 Seek medical help immediately. Stay calm and limit movement.")
-            user_sessions[sender] = {"step": 0, "description": {}, "symptoms": []}  # Reset session
+            response_text = "Sorry, there was an error processing your request."
+        
+        msg.body(response_text)
+        session["step"] = 0
+        return str(response)
 
-    return str(response), 200
+    if session["step"] == 3:
+        # Search by symptoms
+        symptoms = [s.strip() for s in incoming_msg.split(",")]
+        search_response = requests.get(f"{BACKEND_URL}/symptoms/search", params={"symptoms": symptoms})
+        
+        if search_response.status_code == 200:
+            snakes = search_response.json()
+            if snakes:
+                response_text = "Based on the symptoms, possible snake matches:\n\n"
+                for snake in snakes[:3]:
+                    response_text += f"Name: {snake['name']}\n"
+                    response_text += f"Venom: {snake['venom']}\n"
+                    response_text += f"First Aid: {snake['first_aid']}\n\n"
+            else:
+                response_text = "No specific matches found. Please seek immediate medical attention if you've been bitten by a snake."
+        else:
+            response_text = "Sorry, there was an error processing your request."
+            
+        msg.body(response_text)
+        session["step"] = 0
+        return str(response)
 
-# **First Aid Recommendations**
-def first_aid_advice(venom_type):
-    if venom_type == "hemotoxic":
-        return (
-            "🩸 **Hemotoxic Venom First Aid:**\n"
-            "- **Do NOT cut or suck the wound.** \n"
-            "- **Keep the bite area immobilized** and positioned **below heart level** to slow venom spread.\n"
-            "- **Remove tight clothing, jewelry, or accessories** near the bite, as swelling will occur.\n"
-            "- **Do NOT apply ice or a tourniquet**, as these can worsen tissue damage.\n"
-            "- **Monitor for signs of shock**, such as pale skin, rapid breathing, or dizziness. Keep the person lying down and calm.\n"
-        )
+    if session["step"] == 4:
+        if request.values.get('NumMedia', 0) != "0":
+            # Get the image URL from the message
+            image_url = request.values.get('MediaUrl0')
+            
+            # Download the image
+            image_response = requests.get(image_url)
+            
+            # Send to backend API for analysis
+            files = {'image': ('snake.jpg', image_response.content)}
+            analysis_response = requests.post(f"{BACKEND_URL}/snakes/analyze", files=files)
+            
+            if analysis_response.status_code == 200:
+                result = analysis_response.json()
+                if 'details' in result:
+                    snake = result['details']
+                    response_text = f"Snake identified as: {snake['name']}\n"
+                    response_text += f"Scientific name: {snake['scientific_name']}\n"
+                    response_text += f"Venom type: {snake['venom']}\n"
+                    response_text += f"First Aid:\n{snake['first_aid']}"
+                else:
+                    response_text = result.get('warning', 'Unable to identify the snake.')
+            else:
+                response_text = "Sorry, there was an error analyzing the image."
+        else:
+            response_text = "No image received. Please send a photo of the snake."
+            
+        msg.body(response_text)
+        session["step"] = 0
+        return str(response)
 
-    elif venom_type == "neurotoxic":
-        return (
-            "🧠 **Neurotoxic Venom First Aid:**\n"
-            "- **Keep the victim as still and calm as possible** to slow the spread of venom.\n"
-            "- **Do NOT apply a tourniquet or ice**, as these can cause more harm than good.\n"
-            "- **If the person has trouble breathing, provide CPR if trained.** \n"
-            "- **Lay the person on their side** to prevent choking if vomiting occurs.\n"
-            "- **Do NOT give food, water, or medication**, as the venom may impair swallowing.\n"
-            "- **Seek medical help IMMEDIATELY, even if symptoms are mild.** Some neurotoxic bites worsen over time."
-        )
-
-    else:
-        return (
-            "🚑 **General Snakebite First Aid:**\n"
-            "- **Limit movement and keep the bite area immobilized** to reduce venom spread.\n"
-            "- **Remove rings, watches, and tight clothing** before swelling starts.\n"
-            "- **Do NOT attempt to suck, cut, or apply ice/tourniquets**—these can cause more damage.\n"
-            "- **Call emergency services or head to the nearest hospital immediately.**"
-        )
+    msg.body("Sorry, I didn't understand that. Let's start over.")
+    session["step"] = 0
+    return str(response)
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
