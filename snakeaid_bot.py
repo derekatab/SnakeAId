@@ -112,6 +112,139 @@ Makeshift Stretcher Methods:
    - Secure with diagonal lashings
 """
 
+# Predefined initial message variations
+initial_message_variations = [
+    """Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
+Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
+If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
+If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed.""",
+    
+    """First, ensure they're away from the snake. Take off any tight jewelry or clothing near the bite.
+Keep them as still as possible, with the affected limb straight and immobilized.
+If you need to transport them, create a stretcher from available materials and get to medical help quickly.
+If they start feeling dizzy or vomiting, position them on their left side and monitor their breathing.""",
+    
+    """Get them to a safe distance from the snake first. Remove any constricting items like rings or bracelets.
+Keep them calm and completely still, with the bitten limb straight and supported.
+For transport, you can make a stretcher from a tarp, rope, or jackets if needed. Head to medical care right away.
+Watch for dizziness or vomiting - if these occur, lay them on their left side and keep monitoring their breathing.""",
+    
+    """Start by moving them away from the snake's location. Take off any tight items near the bite area.
+Help them stay calm and motionless, keeping the affected limb straight and still.
+If you need to carry them, create a stretcher from available materials and get to medical help immediately.
+If they become dizzy or vomit, place them on their left side and watch their breathing carefully.""",
+    
+    """First priority: get them away from the snake. Remove any tight jewelry or clothing from the bite area.
+Keep them completely still and calm, with the bitten limb straight and supported.
+For longer distances, make a stretcher from tarp, rope, or jackets. Get to medical help as soon as possible.
+If they feel dizzy or vomit, position them on their left side and monitor their breathing closely.""",
+    
+    """Begin by moving them away from the snake. Take off any constricting items like rings or bracelets.
+Help them remain calm and motionless, keeping the affected limb straight and still.
+If transport is needed, create a stretcher from available materials and head to medical care right away.
+Watch for signs of dizziness or vomiting - if these occur, lay them on their left side and monitor breathing.""",
+    
+    """First step: get them away from the snake. Remove any tight items near the bite area.
+Keep them as still as possible, with the affected limb straight and immobilized.
+For longer distances, make a stretcher from tarp, rope, or jackets. Get to medical help immediately.
+If they become dizzy or vomit, place them on their left side and watch their breathing carefully.""",
+    
+    """Start by ensuring they're away from the snake. Take off any constricting jewelry or clothing.
+Help them stay calm and completely still, with the bitten limb straight and supported.
+If you need to transport them, create a stretcher from available materials and get to medical care quickly.
+Watch for dizziness or vomiting - if these occur, position them on their left side and monitor breathing.""",
+    
+    """First priority: move them away from the snake. Remove any tight items from around the bite area.
+Keep them motionless and calm, with the affected limb straight and still.
+For transport, make a stretcher from tarp, rope, or jackets if needed. Head to medical help right away.
+If they feel dizzy or vomit, lay them on their left side and keep monitoring their breathing closely.""",
+    
+    """Begin by getting them away from the snake. Take off any constricting items like rings or bracelets.
+Help them remain calm and completely still, with the bitten limb straight and supported.
+If transport is needed, create a stretcher from available materials and get to medical care immediately.
+Watch for signs of dizziness or vomiting - if these occur, place them on their left side and monitor breathing."""
+]
+
+# Predefined questions and responses
+predefined_questions = [
+    "Have you removed any tight items like rings or bracelets from around the bite area?",
+    "Is the person calm and still?",
+    "How is their breathing? Are they conscious and alert?",
+    "Has the affected limb been immobilized?",
+    "Do you need help preparing transport to a medical facility?",
+    "Is the person showing any signs of dizziness or vomiting?",
+    "Do you have materials available to make a stretcher if needed?",
+    "Can you tell me about their current condition?",
+    "Is the person able to speak and respond to questions?",
+    "Do you have access to medical help nearby?"
+]
+
+predefined_responses = {
+    'positive': [
+        "That's good. Let's continue monitoring their condition.",
+        "Keep up the good care. Let's check something else.",
+        "Well done. Let's make sure we haven't missed anything.",
+        "That's helpful information. Let's check another aspect.",
+        "Good to hear. Let's verify another important detail."
+    ],
+    'negative': [
+        "Let's address that right away.",
+        "We should focus on that now.",
+        "That's important to handle immediately.",
+        "Let's work on that together.",
+        "We need to take care of that."
+    ],
+    'needs_help': [
+        "I'll help you with that.",
+        "Let me guide you through this.",
+        "I can help you with that step.",
+        "Let's work on this together.",
+        "I'll walk you through this."
+    ]
+}
+
+def get_predefined_response(message, current_state):
+    """Generate a response using predefined questions and responses."""
+    try:
+        # Initialize state if needed
+        if 'asked_questions' not in current_state:
+            current_state['asked_questions'] = set()
+            current_state['completed_actions'] = set()
+        
+        # Get the last question asked
+        last_question = current_state.get('last_question', '')
+        
+        # Evaluate the user's response
+        message_lower = message.lower()
+        is_affirmative = any(word in message_lower for word in ['yes', 'yeah', 'done', 'okay', 'ok', 'sure', 'ready'])
+        is_negative = any(word in message_lower for word in ['no', 'not', 'haven\'t', 'can\'t', 'cannot', 'didn\'t'])
+        needs_help = any(word in message_lower for word in ['help', 'how', 'what', 'unclear', 'explain', 'don\'t understand'])
+        
+        # Generate response based on user's answer
+        if is_affirmative:
+            response = random.choice(predefined_responses['positive'])
+        elif is_negative:
+            response = random.choice(predefined_responses['negative'])
+        elif needs_help:
+            response = random.choice(predefined_responses['needs_help'])
+        else:
+            response = "Let's check something else."
+        
+        # Get next question
+        available_questions = [q for q in predefined_questions if q not in current_state['asked_questions']]
+        if not available_questions:
+            available_questions = predefined_questions
+        next_question = random.choice(available_questions)
+        
+        # Update state
+        current_state['asked_questions'].add(next_question)
+        current_state['last_question'] = next_question
+        
+        return f"{response}\n\n{next_question}"
+        
+    except Exception as e:
+        return "How is the person's condition now?"
+
 def evaluate_response(message, current_context):
     """Evaluate user's response to determine next steps."""
     message_lower = message.lower()
@@ -263,84 +396,19 @@ def generate_response(message, sender=None):
         is_first_message = request.json.get('is_first_message', False)
         
         if is_first_message and not current_state.get('has_shown_initial_message', False):
-            # Generate a variation of the initial message using Gemini
-            initial_prompt = f"""Based on these snake bite first aid guidelines, generate a variation of this initial message:
-{who_guidelines}
-
-Original message:
-Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
-Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
-If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
-If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed.
-
-Rules:
-1. Keep the same 4 key points but rephrase them
-2. Maintain the same order of information
-3. Keep the same level of detail
-4. Make it sound natural and conversational
-5. Don't add or remove any critical information
-6. Don't use any prefixes like "SnakeAid:"
-
-Generate a variation of the message:"""
+            # Use predefined initial message
+            initial_response = random.choice(initial_message_variations)
             
-            try:
-                response = model.generate_content(initial_prompt)
-                initial_response = response.text.strip()
-                
-                # Generate a follow-up question
-                follow_up = generate_follow_up_question("", current_state)
-                current_state['has_shown_initial_message'] = True
-                return f"{initial_response}\n\n{follow_up}"
-            except Exception as e:
-                # Fallback to original message if Gemini fails
-                initial_response = """Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
-Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
-If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
-If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed."""
-                follow_up = generate_follow_up_question("", current_state)
-                current_state['has_shown_initial_message'] = True
-                return f"{initial_response}\n\n{follow_up}"
+            # Get first follow-up question
+            first_question = random.choice(predefined_questions)
+            current_state['asked_questions'].add(first_question)
+            current_state['last_question'] = first_question
+            current_state['has_shown_initial_message'] = True
+            
+            return f"{initial_response}\n\n{first_question}"
         
-        # For all subsequent messages, evaluate response and generate contextual response
-        is_affirmative, is_negative, needs_help = evaluate_response(message, current_state)
-        
-        response_prompt = f"""Based ONLY on these guidelines, generate a SHORT, conversational response:
-
-{who_guidelines}
-
-{stretcher_methods}
-
-User message: {message}
-User response type: {"positive" if is_affirmative else "negative" if is_negative else "needs help" if needs_help else "neutral"}
-Current topic: {current_state.get('current_topic', 'general')}
-
-RULES:
-- Keep response under 2-3 sentences
-- Only use information from the guidelines
-- Be conversational but focused on first aid
-- If they're making a stretcher, check their progress and offer specific guidance
-- If they seem unsure, ask for clarification
-- Never invent medical advice not in the guidelines
-- Never ask about moving away from the snake or snake location
-- Never repeat the initial first aid steps
-
-Generate natural response:"""
-        
-        try:
-            response = model.generate_content(response_prompt)
-            response_text = response.text.strip()
-            
-            # If response seems to go beyond our knowledge, use safe fallback
-            if len(response_text.split()) > 50 or any(keyword in response_text.lower() for keyword in ['antivenom', 'hospital', 'doctor', 'medicine', 'treatment']):
-                response_text = "Keep the person calm and still. Continue monitoring their condition."
-            
-            # Generate appropriate follow-up
-            follow_up = generate_follow_up_question(message, current_state)
-            
-            return f"{response_text}\n\n{follow_up}"
-            
-        except Exception as e:
-            return "Keep monitoring the person's condition. Seek medical help as soon as possible."
+        # For subsequent messages, use predefined responses
+        return get_predefined_response(message, current_state)
             
     except Exception as e:
         return "Keep monitoring the person's condition. Seek medical help as soon as possible."
