@@ -258,10 +258,10 @@ def generate_response(message, sender=None):
         
         current_state = conversation_state[sender]
         
-        # Check if this is an initial message request
-        is_initial = message == '' or request.json.get('is_initial', False)
+        # Check if this is the first user message
+        is_first_message = request.json.get('is_first_message', False)
         
-        if is_initial:
+        if is_first_message:
             # Generate a variation of the initial message using Gemini
             initial_prompt = f"""Based on these snake bite first aid guidelines, generate a variation of this initial message:
 {who_guidelines}

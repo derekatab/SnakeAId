@@ -12,63 +12,17 @@ interface Message {
 
 const initialMessage: Message = {
     type: 'bot',
-    content: `Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
-Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
-If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
-If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed.`,
+    content: 'Hello! I\'m here to help with snake bite emergencies. Please describe the situation.',
     timestamp: new Date()
 };
 
 // Create a client-side only component
 const ChatComponent = () => {
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<Message[]>([initialMessage]);
     const [input, setInput] = useState('');
-    const [isTyping, setIsTyping] = useState(true);
+    const [isTyping, setIsTyping] = useState(false);
+    const [hasReceivedFirstMessage, setHasReceivedFirstMessage] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    // Fetch initial message when component mounts
-    useEffect(() => {
-        const fetchInitialMessage = async () => {
-            try {
-                const response = await fetch('http://localhost:5000/sms', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        Body: '',
-                        From: 'web-user',
-                        is_initial: true
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to get initial message');
-                }
-
-                const data = await response.text();
-                const botResponse = data.includes('<Message>')
-                    ? data.split('<Message>')[1].split('</Message>')[0]
-                    : data;
-
-                setMessages([{ type: 'bot', content: botResponse, timestamp: new Date() }]);
-            } catch (error) {
-                console.error('Error fetching initial message:', error);
-                setMessages([{
-                    type: 'bot',
-                    content: `Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
-Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
-If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
-If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed.`,
-                    timestamp: new Date()
-                }]);
-            } finally {
-                setIsTyping(false);
-            }
-        };
-
-        fetchInitialMessage();
-    }, []);
 
     useEffect(() => {
         // Scroll to bottom when new messages arrive
@@ -77,18 +31,13 @@ If they feel dizzy or vomit, lay them on their left side. Watch their breathing 
 
     const resetChat = async () => {
         setIsTyping(true);
-        // Reset the chat messages
+        setHasReceivedFirstMessage(false);
         setMessages([{ ...initialMessage, timestamp: new Date() }]);
 
-        // Reset the Gemini API context by calling the reset endpoint
         try {
-            const response = await fetch('http://localhost:5000/reset', {
+            await fetch('http://localhost:5000/reset', {
                 method: 'POST',
-
             });
-            if (!response.ok) {
-                console.error('Failed to reset chat context');
-            }
         } catch (error) {
             console.error('Error resetting chat:', error);
         } finally {
@@ -107,7 +56,6 @@ If they feel dizzy or vomit, lay them on their left side. Watch their breathing 
         setIsTyping(true);
 
         try {
-            // Send message through Twilio
             const response = await fetch('http://localhost:5000/sms', {
                 method: 'POST',
                 headers: {
@@ -115,7 +63,8 @@ If they feel dizzy or vomit, lay them on their left side. Watch their breathing 
                 },
                 body: JSON.stringify({
                     Body: input,
-                    From: 'web-user'
+                    From: 'web-user',
+                    is_first_message: !hasReceivedFirstMessage
                 })
             });
 
@@ -124,12 +73,12 @@ If they feel dizzy or vomit, lay them on their left side. Watch their breathing 
             }
 
             const data = await response.text();
-            // Extract message from Twilio's XML response
             const botResponse = data.includes('<Message>')
                 ? data.split('<Message>')[1].split('</Message>')[0]
                 : data;
 
             setMessages(prev => [...prev, { type: 'bot', content: botResponse, timestamp: new Date() }]);
+            setHasReceivedFirstMessage(true);
         } catch (error) {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
