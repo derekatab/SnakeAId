@@ -253,15 +253,16 @@ def generate_response(message, sender=None):
                 'removed_tight_items': False,
                 'checked_breathing': False,
                 'in_recovery_position': False,
-                'stretcher_step': 0
+                'stretcher_step': 0,
+                'has_shown_initial_message': False
             }
         
         current_state = conversation_state[sender]
         
-        # Check if this is the first user message
+        # Check if this is the first user message and we haven't shown the initial message yet
         is_first_message = request.json.get('is_first_message', False)
         
-        if is_first_message:
+        if is_first_message and not current_state.get('has_shown_initial_message', False):
             # Generate a variation of the initial message using Gemini
             initial_prompt = f"""Based on these snake bite first aid guidelines, generate a variation of this initial message:
 {who_guidelines}
@@ -288,6 +289,7 @@ Generate a variation of the message:"""
                 
                 # Generate a follow-up question
                 follow_up = generate_follow_up_question("", current_state)
+                current_state['has_shown_initial_message'] = True
                 return f"{initial_response}\n\n{follow_up}"
             except Exception as e:
                 # Fallback to original message if Gemini fails
@@ -296,9 +298,10 @@ Keep their leg still and straight. Don't tie anything around it or try to cut or
 If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
 If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed."""
                 follow_up = generate_follow_up_question("", current_state)
+                current_state['has_shown_initial_message'] = True
                 return f"{initial_response}\n\n{follow_up}"
         
-        # For subsequent messages, evaluate response and generate contextual response
+        # For all subsequent messages, evaluate response and generate contextual response
         is_affirmative, is_negative, needs_help = evaluate_response(message, current_state)
         
         response_prompt = f"""Based ONLY on these guidelines, generate a SHORT, conversational response:
@@ -319,6 +322,7 @@ RULES:
 - If they seem unsure, ask for clarification
 - Never invent medical advice not in the guidelines
 - Never ask about moving away from the snake or snake location
+- Never repeat the initial first aid steps
 
 Generate natural response:"""
         

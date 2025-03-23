@@ -83,7 +83,9 @@ const ChatComponent = () => {
             console.error('Error:', error);
             setMessages(prev => [...prev, {
                 type: 'bot',
-                content: `Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
+                content: hasReceivedFirstMessage
+                    ? "I'm having trouble connecting right now. Please try again in a moment."
+                    : `Move them away from the snake. Remove any tight items like rings or bracelets. Keep them calm and still.
 Keep their leg still and straight. Don't tie anything around it or try to cut or suck the bite.
 If transport is far, make a stretcher using a tarp, rope, or jackets. Get them to a health facility ASAP.
 If they feel dizzy or vomit, lay them on their left side. Watch their breathing and be ready to help if needed.`,
