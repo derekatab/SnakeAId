@@ -203,6 +203,54 @@ predefined_responses = {
     ]
 }
 
+# Define thematic pathways for questions
+question_pathways = {
+    'initial_assessment': {
+        'name': 'Initial Assessment',
+        'questions': [
+            "Is the person conscious and able to speak?",
+            "How is their breathing? Is it normal?",
+            "Can they move the affected limb?",
+            "Are they showing any signs of dizziness or confusion?",
+            "Is their skin color normal around the bite area?"
+        ],
+        'next_pathway': 'immediate_care'
+    },
+    'immediate_care': {
+        'name': 'Immediate Care',
+        'questions': [
+            "Have you removed any tight items like rings or bracelets from around the bite area?",
+            "Is the person calm and still?",
+            "Has the affected limb been immobilized?",
+            "Are they in a comfortable position?",
+            "Do they need to be moved to a better location?"
+        ],
+        'next_pathway': 'transport_prep'
+    },
+    'transport_prep': {
+        'name': 'Transport Preparation',
+        'questions': [
+            "Do you need help preparing transport to a medical facility?",
+            "Do you have materials available to make a stretcher if needed?",
+            "Is medical help nearby or will you need to travel far?",
+            "Do you have someone to help with transport?",
+            "Would you like instructions for making a makeshift stretcher?"
+        ],
+        'next_pathway': 'monitoring'
+    },
+    'monitoring': {
+        'name': 'Ongoing Monitoring',
+        'questions': [
+            "Is the person showing any signs of dizziness or vomiting?",
+            "How is their breathing now?",
+            "Are they able to stay still and calm?",
+            "Is the affected limb still immobilized?",
+            "Do they need to be repositioned?"
+        ],
+        'next_pathway': 'initial_assessment'  # Loop back to initial assessment
+    }
+}
+
 def get_predefined_response(message, current_state):
     """Generate a response using predefined questions and responses."""
     try:
@@ -210,9 +258,12 @@ def get_predefined_response(message, current_state):
         if 'asked_questions' not in current_state:
             current_state['asked_questions'] = set()
             current_state['completed_actions'] = set()
+            current_state['current_pathway'] = 'initial_assessment'
+            current_state['pathway_question_index'] = 0
         
-        # Get the last question asked
-        last_question = current_state.get('last_question', '')
+        # Get current pathway and question index
+        current_pathway = current_state['current_pathway']
+        question_index = current_state['pathway_question_index']
         
         # Evaluate the user's response
         message_lower = message.lower()
@@ -230,15 +281,22 @@ def get_predefined_response(message, current_state):
         else:
             response = "Let's check something else."
         
-        # Get next question
-        available_questions = [q for q in predefined_questions if q not in current_state['asked_questions']]
-        if not available_questions:
-            available_questions = predefined_questions
-        next_question = random.choice(available_questions)
+        # Get current pathway's questions
+        pathway_questions = question_pathways[current_pathway]['questions']
+        
+        # If we've asked all questions in current pathway, move to next pathway
+        if question_index >= len(pathway_questions):
+            current_state['current_pathway'] = question_pathways[current_pathway]['next_pathway']
+            current_state['pathway_question_index'] = 0
+            pathway_questions = question_pathways[current_state['current_pathway']]['questions']
+        
+        # Get next question from current pathway
+        next_question = pathway_questions[question_index]
         
         # Update state
         current_state['asked_questions'].add(next_question)
         current_state['last_question'] = next_question
+        current_state['pathway_question_index'] += 1
         
         return f"{response}\n\n{next_question}"
         
@@ -387,7 +445,9 @@ def generate_response(message, sender=None):
                 'checked_breathing': False,
                 'in_recovery_position': False,
                 'stretcher_step': 0,
-                'has_shown_initial_message': False
+                'has_shown_initial_message': False,
+                'current_pathway': 'initial_assessment',
+                'pathway_question_index': 0
             }
         
         current_state = conversation_state[sender]
@@ -399,8 +459,8 @@ def generate_response(message, sender=None):
             # Use predefined initial message
             initial_response = random.choice(initial_message_variations)
             
-            # Get first follow-up question
-            first_question = random.choice(predefined_questions)
+            # Get first follow-up question from initial assessment pathway
+            first_question = question_pathways['initial_assessment']['questions'][0]
             current_state['asked_questions'].add(first_question)
             current_state['last_question'] = first_question
             current_state['has_shown_initial_message'] = True
