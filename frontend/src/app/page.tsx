@@ -143,8 +143,8 @@ const ChatComponent = () => {
                         >
                             <div
                                 className={`max-w-[85%] rounded-2xl p-4 shadow-sm transition-all duration-200 hover:shadow-md ${message.type === 'user'
-                                        ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white'
-                                        : 'bg-white text-gray-800 border border-gray-100'
+                                    ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white'
+                                    : 'bg-white text-gray-800 border border-gray-100'
                                     }`}
                             >
                                 <pre className="whitespace-pre-wrap font-sans text-sm md:text-base leading-relaxed">{message.content}</pre>
