@@ -323,5 +323,17 @@ def sms_reply():
     # Return plain text for web requests
     return response_text
 
+@app.route("/reset", methods=['POST'])
+def reset_conversation():
+    """Reset the conversation state for the web user."""
+    try:
+        # Clear the conversation state for web-user
+        if 'web-user' in conversation_state:
+            del conversation_state['web-user']
+        return jsonify({"status": "success", "message": "Conversation reset successfully"}), 200
+    except Exception as e:
+        print(f"Error resetting conversation: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
